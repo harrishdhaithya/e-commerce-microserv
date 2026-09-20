@@ -30,15 +30,19 @@ spring:
       # database later; start as you mean to continue.
       maximum-pool-size: 5
 
-# No spring.security.oauth2 block yet, deliberately.
-#
-# This service has no spring-boot-starter-oauth2-resource-server dependency, so such
-# a block would be silently ignored - configuration that looks active and is not.
-#
-# Adding the dependency is not a one-line change either: it secures every endpoint by
-# default, so /api/products would start returning 401 and break both the SPA and the
-# test suite until a SecurityFilterChain permits public GETs. That belongs in its own
-# step - see PLAN.md Phase 1.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri is what the `iss` claim must equal; jwk-set-uri is where this
+          # process fetches the signing keys. They differ inside Docker, where
+          # "localhost" is the container rather than the host - see
+          # docs/architecture.md.
+          #
+          # Note that reads here are public, so most requests never carry a token at
+          # all. These settings only matter for the admin write endpoints.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
 
 server:
   port: 8082

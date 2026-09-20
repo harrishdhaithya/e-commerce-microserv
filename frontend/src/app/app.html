@@ -4,10 +4,31 @@
       <span class="brand__mark" aria-hidden="true">E</span>
       <span class="brand__text">{{ storeName }}</span>
     </a>
+
     <nav class="shell__nav">
       <a routerLink="/products" routerLinkActive="is-active">Catalog</a>
-      <!-- Cart arrives in Phase 2, account in Phase 1. -->
+
+      @if (auth.isAuthenticated()) {
+        <a routerLink="/account" routerLinkActive="is-active">Account</a>
+      }
+
+      <!-- Cart arrives in Phase 2. -->
     </nav>
+
+    <div class="shell__auth">
+      @if (!auth.checked()) {
+        <!-- Neither button until checkAuth settles, so a signed-in user never sees
+             "Sign in" flash on reload. -->
+        <span class="shell__auth-placeholder" aria-hidden="true"></span>
+      } @else if (auth.isAuthenticated()) {
+        @if (auth.displayName(); as name) {
+          <span class="shell__user">{{ name }}</span>
+        }
+        <button type="button" class="linkish" (click)="signOut()">Sign out</button>
+      } @else {
+        <button type="button" class="linkish" (click)="signIn()">Sign in</button>
+      }
+    </div>
   </header>
 
   <main class="shell__main">
@@ -15,7 +36,7 @@
   </main>
 
   <footer class="shell__footer">
-    <span>Phase 0 &mdash; catalog-service only</span>
+    <span>Phase 1 &mdash; catalog + customer</span>
     <span class="shell__footer-meta">Angular {{ angularVersion }} &middot; Spring Boot 3.5</span>
   </footer>
 </div>

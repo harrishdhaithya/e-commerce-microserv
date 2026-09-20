@@ -282,6 +282,50 @@ Known limitation: embedded H2 cannot support multiple replicas of a service, sin
 each pod would hold its own private data. That is the point at which a real database
 becomes necessary (PLAN.md Phase 8).
 
+## Containerisation
+
+`infra/docker-compose.yml` runs the whole stack: Keycloak, both services and the SPA.
+
+| Service | Image | Build context | Notes |
+|---|---|---|---|
+| keycloak | `quay.io/keycloak/keycloak` | — | Realm imported from committed JSON |
+| catalog-service | multi-stage Maven → JRE | **repo root** | Reactor module needs the parent POM |
+| customer-service | multi-stage Maven → JRE | **repo root** | Same |
+| frontend | Node build → nginx | `frontend/` | No Maven dependency |
+
+Points worth understanding:
+
+- **Service build contexts are the repo root**, not the service directory. A Maven
+  reactor module cannot compile without its parent POM and the `common/` modules it
+  depends on. `.dockerignore` keeps `target/`, `node_modules/` and H2 files out.
+- **Multi-stage everywhere.** The Maven and Node builders never ship; only a JRE with
+  a jar, and nginx with a bundle. The frontend image is under 100MB as a result.
+- **Each service has a named volume** at `/app/data` for its H2 file. Without it the
+  catalog would reseed and customer data vanish whenever a container is replaced.
+- **`depends_on: condition: service_healthy`** makes customer-service wait for
+  Keycloak's realm import to finish, not merely for its container to exist.
+- **The issuer/JWKS split** described below is the one genuinely non-obvious part.
+- **Services run as a non-root user**, and the frontend is published on host port 4200
+  (nginx listens on 80) because the `ecom-web` client's redirect URIs are registered
+  for `localhost:4200`.
+
+### Issuer vs. JWKS inside Docker
+
+A browser obtains tokens from `http://localhost:8180`, so `iss` is always
+`localhost:8180` — `KC_HOSTNAME` guarantees it regardless of caller. But inside a
+container `localhost` is that container, so keys must be fetched over the compose
+network instead:
+
+```yaml
+KEYCLOAK_ISSUER_URI:  http://localhost:8180/realms/ecommerce
+KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+```
+
+Spring uses `jwk-set-uri` to build the decoder and `issuer-uri` for the validator, so
+setting both gives exactly the required behaviour. Setting only `issuer-uri` makes
+Spring derive the JWKS URL from it and fail in Docker; setting only `jwk-set-uri`
+skips issuer validation altogether.
+
 ## Port map
 
 | Port | Process |

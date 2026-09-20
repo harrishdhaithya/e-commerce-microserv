@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
-import { ApiError } from './models/api-error';
+import { ApiError, FieldViolation } from './models/api-error';
 
 /** Error carrying the fields a UI actually needs to show something useful. */
 export class ApiRequestError extends Error {
@@ -8,13 +8,20 @@ export class ApiRequestError extends Error {
     message: string,
     readonly status: number,
     readonly correlationId: string | null,
+    /**
+     * Per-field validation failures from the shared ApiError. Empty for anything
+     * that is not a 400 - forms use this to put a message next to the offending
+     * input rather than in a banner.
+     */
+    readonly violations: FieldViolation[] = [],
   ) {
     super(message);
     this.name = 'ApiRequestError';
   }
 }
 
-const SERVICE_UNREACHABLE = 'Cannot reach the API. Is catalog-service running on port 8082?';
+const SERVICE_UNREACHABLE =
+  'Cannot reach the API. Are catalog-service (8082) and customer-service (8081) running?';
 
 /**
  * Narrows an unknown error body to our shared ApiError.
@@ -65,7 +72,13 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) =>
           );
         }
         return throwError(
-          () => new ApiRequestError(body.message, response.status, body.correlationId ?? null),
+          () =>
+            new ApiRequestError(
+              body.message,
+              response.status,
+              body.correlationId ?? null,
+              body.violations ?? [],
+            ),
         );
       }
 

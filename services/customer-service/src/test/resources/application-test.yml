@@ -16,3 +16,19 @@ spring:
       # Same validate as production: a broken migration fails the test suite, which
       # is the whole point of running Flyway in tests.
       ddl-auto: validate
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Overrides issuer-uri from application.yml, and the difference matters.
+          #
+          # issuer-uri makes Spring fetch Keycloak's OIDC discovery document while
+          # building the JwtDecoder bean - i.e. during context startup. That silently
+          # couples every @SpringBootTest to Keycloak being up: green on a laptop
+          # where it happens to be running, red in CI.
+          #
+          # jwk-set-uri builds the decoder without contacting anything; keys are
+          # fetched on first use. Tests authenticate with the jwt() post-processor,
+          # which bypasses the decoder entirely, so this URL is never called.
+          jwk-set-uri: http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs

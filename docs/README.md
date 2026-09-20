@@ -29,7 +29,7 @@ Each contains responsibilities, database schema, API endpoints, and events.
 | Service | Port | Status |
 |---|---|---|
 | [api-gateway](services/api-gateway.md) | 8080 | 🔵 Planned — Phase 2 |
-| [customer-service](services/customer-service.md) | 8081 | 🔵 Planned — Phase 1 |
+| [customer-service](services/customer-service.md) | 8081 | ✅ **Implemented** |
 | [catalog-service](services/catalog-service.md) | 8082 | ✅ **Implemented** |
 | [inventory-service](services/inventory-service.md) | 8083 | 🔵 Planned — Phase 2 |
 | [cart-service](services/cart-service.md) | 8084 | 🔵 Planned — Phase 2 |
@@ -39,10 +39,10 @@ Each contains responsibilities, database schema, API endpoints, and events.
 
 ## Read this before trusting a document
 
-**Only `catalog-service` exists today.** Its document describes code that runs, with
-schema and endpoints taken from the actual migration and controller.
+**`catalog-service` and `customer-service` exist today.** Their documents describe code
+that runs, with schema and endpoints taken from the actual migrations and controllers.
 
-The other seven are **design specifications**, not descriptions of working software.
+The other six are **design specifications**, not descriptions of working software.
 Every one carries a banner saying so. Their schemas and endpoints are proposals that
 will change once they meet real code — which is normal and fine, as long as nobody
 mistakes them for as-built documentation. Each planned document ends with a

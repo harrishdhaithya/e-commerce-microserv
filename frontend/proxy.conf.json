@@ -1,5 +1,17 @@
 {
-  "/api": {
+  "/api/customers": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/products": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/categories": {
     "target": "http://localhost:8082",
     "secure": false,
     "changeOrigin": true,

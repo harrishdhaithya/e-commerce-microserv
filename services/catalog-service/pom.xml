@@ -37,6 +37,16 @@
             <artifactId>common-web</artifactId>
         </dependency>
 
+        <!--
+            Adding this is not a neutral act: Spring Security secures every endpoint
+            by default, so product listings start returning 401 the moment it is on
+            the classpath. SecurityConfig exists to put the public reads back.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
         <!-- Flyway owns the schema. H2 support ships inside flyway-core. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -64,6 +74,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

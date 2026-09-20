@@ -126,6 +126,107 @@ services:
 
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Application services
+  #
+  # Build context is `..` - the repo root - because each service is a module in a
+  # Maven reactor and cannot compile without the parent POM and common/. The
+  # dockerfile path is therefore relative to the root too.
+  # ---------------------------------------------------------------------------
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: services/catalog-service/Dockerfile
+    container_name: ecommerce-catalog
+    ports:
+      # Published so Swagger UI and the H2 console stay reachable from the host.
+      - "8082:8082"
+    volumes:
+      # H2 lives in the container's /app/data. Without this volume the catalog would
+      # be rebuilt from the seed migration every time the container is replaced.
+      - catalog-data:/app/data
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      # Same split as customer-service: validate the issuer as the browser sees it,
+      # fetch the signing keys over the compose network. Only the admin write
+      # endpoints need these - browsing the catalog carries no token at all.
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ecommerce
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  customer-service:
+    build:
+      context: ..
+      dockerfile: services/customer-service/Dockerfile
+    container_name: ecommerce-customer
+    ports:
+      - "8081:8081"
+    volumes:
+      - customer-data:/app/data
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+      # ---------------------------------------------------------------------
+      # The one genuinely tricky pair of settings in this file.
+      #
+      # A browser obtains its token from http://localhost:8180, so every token's
+      # `iss` claim says localhost:8180 - and KC_HOSTNAME above guarantees that
+      # regardless of who asks. The issuer this service validates against must
+      # therefore be the localhost form.
+      #
+      # But inside this container, "localhost" is this container. Fetching the
+      # signing keys from localhost:8180 would connect to nothing. The keys have
+      # to come over the compose network, from keycloak:8080.
+      #
+      # Hence: validate the issuer as the browser sees it, fetch the keys as the
+      # container sees it. Collapsing these into a single issuer-uri is the
+      # classic way to get an opaque 401 invalid_token that takes an hour to
+      # diagnose.
+      # ---------------------------------------------------------------------
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ecommerce
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+    depends_on:
+      keycloak:
+        # Waits for the realm import to finish, not merely for the container to
+        # exist - which is what the healthcheck above is for.
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      # Only this service builds from frontend/ - the SPA has no dependency on the
+      # Maven reactor.
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ecommerce-frontend
+    ports:
+      # 4200 on the host even though nginx listens on 80, because the ecom-web
+      # client's registered redirect URIs are http://localhost:4200/*. Changing
+      # this port means editing the realm JSON to match.
+      - "4200:80"
+    depends_on:
+      catalog-service:
+        condition: service_started
+      customer-service:
+        condition: service_started
+    restart: unless-stopped
+
   # Phase 3 additions, for reference. Do not uncomment until you need them.
   #
   #   kafka        - Redpanda is a lighter, Kafka-API-compatible option locally
@@ -134,5 +235,8 @@ services:
   #   prometheus   - scrapes each service's /actuator/prometheus
   #   grafana      - dashboards over Prometheus
   #   jaeger       - OpenTelemetry trace collector and UI
+
 volumes:
   keycloak-data:
+  catalog-data:
+  customer-data:

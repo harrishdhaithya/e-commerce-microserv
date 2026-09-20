@@ -1,19 +1,28 @@
 package com.ecommerce.catalog.api;
 
-import com.ecommerce.catalog.api.dto.PagedResponse;
+import com.ecommerce.catalog.api.dto.ProductRequest;
 import com.ecommerce.catalog.api.dto.ProductResponse;
 import com.ecommerce.catalog.service.CatalogService;
+import com.ecommerce.common.web.PagedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.UUID;
 
@@ -56,6 +65,38 @@ public class ProductController {
     @Operation(summary = "Fetch one product by its public id")
     public ProductResponse getProduct(@PathVariable UUID id) {
         return catalog.getProduct(id);
+    }
+
+    // ------------------------------------------------------------------- admin
+    //
+    // The reads above are public; everything below requires a token carrying the
+    // ADMIN realm role. The check sits on the method rather than only in
+    // SecurityConfig so the requirement is visible next to the operation.
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a product")
+    public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductRequest request,
+                                                  UriComponentsBuilder uriBuilder) {
+        ProductResponse created = catalog.createProduct(request);
+        return ResponseEntity
+                .created(uriBuilder.path("/api/products/{id}").buildAndExpand(created.id()).toUri())
+                .body(created);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Replace a product. The SKU is immutable")
+    public ProductResponse update(@PathVariable UUID id, @Valid @RequestBody ProductRequest request) {
+        return catalog.updateProduct(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Discontinue a product. Hidden from browsing, still resolvable by id")
+    public ResponseEntity<Void> discontinue(@PathVariable UUID id) {
+        catalog.discontinueProduct(id);
+        return ResponseEntity.noContent().build();
     }
 
     /**

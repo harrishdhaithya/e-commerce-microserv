@@ -291,8 +291,9 @@ Monorepo aggregator POMs, `common-web` (shared `ApiError`, exception handler, co
 *Exit criterion met:* two commands, then browse products at localhost:4200. Verified end to end in a browser, including killing the backend mid-session and recovering via "Try again".
 See [README.md](README.md) to run it. Everything else clones this skeleton.
 
-**Phase 1 — Catalog and identity (1–2 weeks)**
-Full `catalog-service` (categories, variants, images, pagination, filter + `LIKE` search). Keycloak in Docker (your first container) per §5.1 — realm JSON exported and committed, two seed users, `ecom-web` PKCE client. `catalog-service` becomes a resource server with public reads and `ADMIN`-only writes. `customer-service` with profile, addresses, and JIT provisioning off the `sub` claim. Seed-data migration so you always have a populated catalog. Angular: product browsing, OIDC login, account page.
+**Phase 1 — Catalog and identity** — ✅ **complete**
+Keycloak in Docker per §5.1, realm JSON committed and imported, `ecom-web` PKCE client plus a dev CLI client, two seed users. `customer-service`: profile, addresses, JIT provisioning off the `sub` claim, role-based admin endpoints. `catalog-service` is now a resource server — public reads, `ADMIN`-only product and category CRUD. Angular: OIDC login with PKCE, route guard, account page. The whole stack also runs under `docker compose`.
+*Deferred by choice:* product variants, multiple images and brands — the catalog model stays simple until something needs them. No admin UI yet; the write endpoints are exercised by tests and `curl`.
 *Exit criterion:* log in through Keycloak's own login page, land back in the SPA authenticated, and edit an address that persists. Then stop Keycloak and confirm authenticated API calls still work — that's the offline-JWT-validation lesson in one experiment.
 
 **Phase 2 — Gateway, cart, and order happy path (2 weeks)**

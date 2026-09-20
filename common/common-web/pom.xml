@@ -23,6 +23,49 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+        <!--
+            optional=true is load-bearing, not tidiness.
+
+            Without it this dependency would reach every consumer transitively,
+            including catalog-service - which would activate Spring Security's
+            auto-configuration there and start returning 401 for product listings,
+            breaking the SPA and the test suite.
+
+            Marked optional, the classes are available to compile the Keycloak role
+            converter here, but a service only gets them by declaring the
+            resource-server starter itself. CommonSecurityAutoConfiguration is
+            @ConditionalOnClass, so it stays dormant where they are absent.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-resource-server</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Both artifacts are needed, and the split is not obvious:
+            JwtAuthenticationConverter is in spring-security-oauth2-resource-server,
+            but the Jwt type itself lives in spring-security-oauth2-jose, which the
+            former does not pull in transitively.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Needed only for PagedResponse.from(Page, mapper). Optional for the same
+            reason as above: every service that paginates already has Spring Data via
+            spring-boot-starter-data-jpa, and api-gateway - which has no database and
+            never paginates - should not inherit it.
+        -->
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-commons</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <!--

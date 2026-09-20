@@ -34,14 +34,26 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Must match the `iss` claim in Keycloak's tokens byte for byte, which is
-          # why infra/docker-compose.yml pins KC_HOSTNAME to this same value. A
-          # mismatch surfaces as an opaque 401 invalid_token with no useful detail.
+          # These two are split on purpose, and the reason only becomes obvious once
+          # this service runs in a container.
           #
-          # Spring fetches the JWKS from here once and caches the public keys, so
-          # validation is offline: Keycloak being down blocks new logins but not
-          # authenticated API calls.
-          issuer-uri: http://localhost:8180/realms/ecommerce
+          # issuer-uri is what the `iss` claim must equal, byte for byte. Tokens are
+          # minted for a browser, which reaches Keycloak at localhost:8180 - and
+          # KC_HOSTNAME pins Keycloak to stamp exactly that, whoever asks.
+          #
+          # jwk-set-uri is where THIS PROCESS fetches the signing keys. On the host
+          # that is also localhost:8180, but inside Docker "localhost" is the
+          # container itself, so it has to be http://keycloak:8080 instead.
+          #
+          # Setting both means Spring fetches keys over the internal address while
+          # still validating the issuer against the public one. Setting only
+          # issuer-uri would make Spring derive the JWKS URL from it and fail in
+          # Docker; setting only jwk-set-uri would skip issuer validation entirely.
+          #
+          # Using jwk-set-uri also removes the discovery call at startup, so the
+          # service boots whether or not Keycloak is up.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
 
 server:
   # 8081 per the port map in docs/architecture.md. 8083 is inventory-service.

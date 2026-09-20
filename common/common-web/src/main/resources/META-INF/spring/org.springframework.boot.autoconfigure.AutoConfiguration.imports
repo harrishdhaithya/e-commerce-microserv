@@ -1,1 +1,2 @@
 com.ecommerce.common.web.CommonWebAutoConfiguration
+com.ecommerce.common.web.security.CommonSecurityAutoConfiguration

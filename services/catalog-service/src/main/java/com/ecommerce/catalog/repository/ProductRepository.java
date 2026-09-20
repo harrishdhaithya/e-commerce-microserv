@@ -38,4 +38,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByPublicId(@Param("publicId") UUID publicId);
 
     Optional<Product> findBySku(String sku);
+
+    boolean existsBySku(String sku);
+
+    /**
+     * How many products sit in a category.
+     *
+     * <p>Used to refuse deleting a category that is still in use. The foreign key
+     * would reject it anyway, but as an opaque constraint violation - this turns it
+     * into a 409 that says which category and why.
+     */
+    long countByCategory_Slug(String slug);
 }

@@ -13,7 +13,7 @@ store and the only service a visitor needs in order to browse.
 | **Database** | `jdbc:h2:file:./data/catalog` (dev) · `jdbc:h2:mem:catalog-test` (test) |
 | **Module** | `services/catalog-service` |
 | **Package** | `com.ecommerce.catalog` |
-| **Auth** | None yet. Phase 1 makes reads public and writes `ADMIN`-only |
+| **Auth** | Reads public, writes `ADMIN`-only |
 
 ## Responsibilities
 
@@ -220,6 +220,53 @@ bounded.
 Internal `id` and `version` are never serialized. DTOs also prevent Hibernate from
 being asked to resolve a lazy association during response writing.
 
+## Admin endpoints
+
+All require a token carrying the `ADMIN` realm role. `@PreAuthorize` sits on each
+method, so the requirement is visible next to the operation rather than only in the
+filter chain.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/products` | Create. `201` + `Location` |
+| `PUT` | `/api/products/{id}` | Replace. **SKU is immutable** |
+| `DELETE` | `/api/products/{id}` | Discontinue — `active = false`, not a row delete. `204` |
+| `POST` | `/api/categories` | Create. `201` + `Location` |
+| `PUT` | `/api/categories/{id}` | Rename. **Slug is immutable** |
+| `DELETE` | `/api/categories/{id}` | Delete, `409` if products still reference it |
+
+Three decisions worth knowing:
+
+- **`DELETE` on a product discontinues rather than deletes.** A hard delete would be
+  safe as far as other services go — order-service copies product details onto the
+  order — but the row is wanted here so an order history page can still resolve what
+  was bought. It leaves browsing and stays addressable by id.
+- **SKU and slug are immutable.** Both are business keys that appear elsewhere: a SKU
+  on labels and in order lines, a slug in every category URL. Changing either would
+  silently break those references, so an attempt returns `409` rather than succeeding
+  quietly. Create a new product, or accept the old slug.
+- **Deleting a category in use returns `409` naming the count.** The foreign key
+  would reject it anyway, but as an opaque constraint violation; this is something an
+  admin can act on.
+
+## Security
+
+Reads are public — this is the one service where anonymous access is the normal case,
+since a visitor must be able to browse without an account. So the rule is inverted
+compared with customer-service: open by default, `ADMIN` for writes.
+
+| Piece | Where |
+|---|---|
+| `GET /api/products/**`, `GET /api/categories/**` permitted; everything else authenticated | `config/SecurityConfig` |
+| `@EnableMethodSecurity` + `@PreAuthorize("hasRole('ADMIN')")` on writes | `SecurityConfig`, controllers |
+| `realm_access.roles` → `ROLE_`-prefixed authorities | `common-web`'s `KeycloakRealmRoleConverter` |
+| `issuer-uri` / `jwk-set-uri` | `application.yml`, env-overridable for Docker |
+
+Matching is **by method as well as path**, so a `POST` to `/api/products` still has to
+authenticate even though the `GET` is open. Note that adding the resource-server
+dependency secures every endpoint by default — `SecurityConfig` exists to put the
+public reads back, and the 11 pre-existing tests are the regression guard for that.
+
 ## Error responses
 
 Every error uses the shared `ApiError` from `common-web`:
@@ -238,8 +285,11 @@ Every error uses the shared `ApiError` from `common-web`:
 
 | Status | Cause |
 |---|---|
-| `400` | Unsupported `sort` field, `size` above 100, malformed UUID |
-| `404` | Unknown product `public_id` |
+| `400` | Unsupported `sort` field, `size` above 100, malformed UUID, validation failure (`violations[]` names the field) |
+| `401` | Write attempted without a token |
+| `403` | Write attempted with a valid token lacking `ADMIN` |
+| `404` | Unknown product `public_id`, or unknown category slug on a write |
+| `409` | Duplicate SKU or slug; attempt to change an immutable key; category still in use |
 | `500` | Unexpected error. Message is deliberately generic — details go to the log against the `correlationId` |
 
 `correlationId` echoes an inbound `X-Correlation-Id` or is generated, appears in the
@@ -300,13 +350,14 @@ null first, because browsers send `?q=` as an empty string rather than omitting 
 
 ## Tests
 
-11 tests, roughly 4 seconds.
+28 tests, roughly 5 seconds.
 
 | Test | Covers |
 |---|---|
 | `CatalogServiceApplicationTests` (1) | Context loads — which runs every migration, then has Hibernate validate the entity mappings against the resulting schema |
 | `ProductControllerTest` (8) | Inactive products excluded; category filter; case-insensitive search; blank `q` treated as no filter; fetch by public id; internal fields absent from JSON; `ApiError` shape on 404; sort allowlist rejection; page-size ceiling |
 | `CategoryControllerTest` (2) | Name ordering; public id and slug exposed, `version` not |
+| `CatalogAdminTest` (17) | The 401/403/201 access matrix; browsing stays public; duplicate SKU and slug; immutable SKU and slug; discontinue semantics; category-in-use refusal; validation |
 
 The smoke test earns its place: a typo in a column name fails there rather than at
 runtime.

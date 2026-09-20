@@ -3,6 +3,8 @@ package com.ecommerce.common.web;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -19,6 +21,9 @@ import java.util.Map;
  * responses stay identical across the platform.
  */
 @RestControllerAdvice
+// Last resort. Its catch-all would otherwise shadow more specific advices - notably
+// SecurityExceptionHandler, whose 403s would come out as 500s.
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -27,6 +32,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 ApiError.of(404, "Not Found", ex.getMessage(),
+                        request.getRequestURI(), CorrelationIdFilter.current(request)));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiError.of(409, "Conflict", ex.getMessage(),
                         request.getRequestURI(), CorrelationIdFilter.current(request)));
     }
 
