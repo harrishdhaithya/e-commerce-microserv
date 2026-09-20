@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: catalog-service
+
+  profiles:
+    # Running the jar or `mvn spring-boot:run` with no profile set lands in dev.
+    default: dev
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. 'validate' fails startup on entity/schema drift
+      # instead of silently reshaping tables - see PLAN.md section 4.
+      ddl-auto: validate
+    # Keeps the Hibernate session from staying open through view rendering, which
+    # hides N+1 queries behind lazy loads in the serialization layer.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    # Schema only. The dev profile adds db/seed on top.
+    locations: classpath:db/migration
+
+  datasource:
+    hikari:
+      # Deliberately small. Six services with fat pools is how you exhaust a real
+      # database later; start as you mean to continue.
+      maximum-pool-size: 5
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    # The correlation ID from common-web, on every line.
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{correlationId:-no-correlation-id}] %logger{36} - %msg%n"

@@ -1,0 +1,21 @@
+<div class="shell">
+  <header class="shell__header">
+    <a class="brand" routerLink="/products">
+      <span class="brand__mark" aria-hidden="true">E</span>
+      <span class="brand__text">{{ storeName }}</span>
+    </a>
+    <nav class="shell__nav">
+      <a routerLink="/products" routerLinkActive="is-active">Catalog</a>
+      <!-- Cart arrives in Phase 2, account in Phase 1. -->
+    </nav>
+  </header>
+
+  <main class="shell__main">
+    <router-outlet />
+  </main>
+
+  <footer class="shell__footer">
+    <span>Phase 0 &mdash; catalog-service only</span>
+    <span class="shell__footer-meta">Angular {{ angularVersion }} &middot; Spring Boot 3.5</span>
+  </footer>
+</div>

@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    # File mode, not mem: your catalog and any work-in-progress state survive the
+    # dozens of restarts you will do each day (PLAN.md section 4).
+    #
+    # AUTO_SERVER=TRUE lets an external SQL client attach while the service is
+    # running - the closest thing to inspecting live state.
+    url: jdbc:h2:file:./data/catalog;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  flyway:
+    # Schema, then demo data. Tests load only db/migration, so their fixtures stay
+    # explicit and this seed data can never make a test pass by accident.
+    locations: classpath:db/migration,classpath:db/seed
+
+  h2:
+    console:
+      # http://localhost:8082/h2-console  (JDBC URL as above, user sa, no password)
+      # Dev profile only - never enable this anywhere reachable.
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    # Uncomment to watch the SQL Hibernate actually emits - the fastest way to
+    # catch an N+1 before it becomes a habit.
+    # org.hibernate.SQL: DEBUG
+    # org.hibernate.orm.jdbc.bind: TRACE
+    com.ecommerce: DEBUG

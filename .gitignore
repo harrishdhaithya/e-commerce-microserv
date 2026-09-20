@@ -1,0 +1,28 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# H2 database files (PLAN.md section 4 - dev data is disposable, seed rebuilds it)
+data/
+*.mv.db
+*.trace.db
+*.lock.db
+
+# Angular / Node
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/src/app/generated/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Local env overrides - never commit secrets
+.env
+*-local.yml
+application-local.yml

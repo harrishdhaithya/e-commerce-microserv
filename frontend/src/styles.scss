@@ -1,0 +1,56 @@
+/* Global tokens. Every colour in the app comes from here, so a restyle later is
+   one file rather than a hunt through components. */
+
+:root {
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius: 12px;
+
+  --bg: #ffffff;
+  --surface: #f8f9fb;
+  --surface-sunken: #eceef2;
+  --border: #dcdfe6;
+  --text: #1a1c20;
+  --text-muted: #64697a;
+  --accent: #3054d1;
+  --accent-contrast: #ffffff;
+  --danger-surface: #fdf3f2;
+  --danger-border: #e8b4ae;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --surface: #1b1e24;
+    --surface-sunken: #24282f;
+    --border: #2f343d;
+    --text: #e9ecf1;
+    --text-muted: #9aa1b1;
+    --accent: #7d9bff;
+    --accent-contrast: #14161a;
+    --danger-surface: #2a1c1c;
+    --danger-border: #6b3b38;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
