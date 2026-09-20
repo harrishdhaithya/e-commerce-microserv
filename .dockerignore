@@ -1,0 +1,26 @@
+# Everything here stays out of the build context sent to the Docker daemon.
+# Without this, node_modules and target/ alone are hundreds of megabytes copied on
+# every build - slow, and they would shadow what the build stages produce anyway.
+
+**/target/
+**/node_modules/
+**/dist/
+**/.angular/
+
+# H2 databases. A container must start from its own volume, never from a copy of
+# whatever happened to be on the host.
+**/data/
+**/*.mv.db
+**/*.trace.db
+**/*.lock.db
+
+.git/
+.idea/
+**/*.iml
+.vscode/
+**/.DS_Store
+
+# Docs and infra are not needed to compile anything.
+docs/
+*.md
+infra/

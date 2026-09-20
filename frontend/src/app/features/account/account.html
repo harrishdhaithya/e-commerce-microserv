@@ -1,0 +1,215 @@
+<section class="account">
+  <header class="account__header">
+    <h1>Your account</h1>
+    @if (profile(); as customer) {
+      <p class="account__meta">
+        {{ customer.email }} &middot; <span class="tier">{{ customer.loyaltyTier }}</span>
+      </p>
+    }
+  </header>
+
+  @if (savedMessage(); as message) {
+    <p class="banner banner--ok" role="status">{{ message }}</p>
+  }
+
+  @if (errorMessage(); as message) {
+    <div class="banner banner--error" role="alert">
+      <p>{{ message }}</p>
+      @if (correlationId(); as id) {
+        <p class="banner__meta">
+          Correlation ID: <code>{{ id }}</code>
+        </p>
+      }
+    </div>
+  }
+
+  @if (loading()) {
+    <p class="muted">Loading&hellip;</p>
+  } @else {
+    <div class="panel">
+      <h2>Profile</h2>
+      <p class="muted">
+        Your email and password live in the sign-in provider, not here &mdash; change
+        those from its account console.
+      </p>
+
+      <form class="form" (ngSubmit)="saveProfile()">
+        <label class="field">
+          <span class="field__label">First name</span>
+          <input type="text" name="firstName" [(ngModel)]="firstName" maxlength="100" />
+          @if (fieldError('firstName'); as message) {
+            <span class="field__error">{{ message }}</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Last name</span>
+          <input type="text" name="lastName" [(ngModel)]="lastName" maxlength="100" />
+          @if (fieldError('lastName'); as message) {
+            <span class="field__error">{{ message }}</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Phone</span>
+          <input type="tel" name="phone" [(ngModel)]="phone" maxlength="40" />
+          @if (fieldError('phone'); as message) {
+            <span class="field__error">{{ message }}</span>
+          }
+        </label>
+
+        <label class="check">
+          <input type="checkbox" name="marketingOptIn" [(ngModel)]="marketingOptIn" />
+          <span>Send me product news and offers</span>
+        </label>
+
+        <div class="form__actions">
+          <button type="submit" class="button button--primary">Save profile</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <h2>Addresses</h2>
+        @if (!showAddressForm()) {
+          <button type="button" class="button" (click)="startCreate()">Add address</button>
+        }
+      </div>
+
+      @if (showAddressForm()) {
+        <form class="form form--address" (ngSubmit)="saveAddress()">
+          <h3>{{ editingId() ? 'Edit address' : 'New address' }}</h3>
+
+          <label class="field">
+            <span class="field__label">Label</span>
+            <input type="text" name="label" [(ngModel)]="draft.label" placeholder="Home" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Recipient name *</span>
+            <input type="text" name="recipientName" [(ngModel)]="draft.recipientName" required />
+            @if (fieldError('recipientName'); as message) {
+              <span class="field__error">{{ message }}</span>
+            }
+          </label>
+
+          <label class="field field--wide">
+            <span class="field__label">Address line 1 *</span>
+            <input type="text" name="line1" [(ngModel)]="draft.line1" required />
+            @if (fieldError('line1'); as message) {
+              <span class="field__error">{{ message }}</span>
+            }
+          </label>
+
+          <label class="field field--wide">
+            <span class="field__label">Address line 2</span>
+            <input type="text" name="line2" [(ngModel)]="draft.line2" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">City *</span>
+            <input type="text" name="city" [(ngModel)]="draft.city" required />
+            @if (fieldError('city'); as message) {
+              <span class="field__error">{{ message }}</span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Region</span>
+            <input type="text" name="region" [(ngModel)]="draft.region" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Postal code *</span>
+            <input type="text" name="postalCode" [(ngModel)]="draft.postalCode" required />
+            @if (fieldError('postalCode'); as message) {
+              <span class="field__error">{{ message }}</span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Country *</span>
+            <input
+              type="text"
+              name="countryCode"
+              [(ngModel)]="draft.countryCode"
+              maxlength="2"
+              placeholder="GB"
+              required
+            />
+            @if (fieldError('countryCode'); as message) {
+              <span class="field__error">{{ message }}</span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Phone</span>
+            <input type="tel" name="addressPhone" [(ngModel)]="draft.phone" />
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="defaultShipping" [(ngModel)]="draft.defaultShipping" />
+            <span>Default shipping address</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="defaultBilling" [(ngModel)]="draft.defaultBilling" />
+            <span>Default billing address</span>
+          </label>
+
+          <div class="form__actions">
+            <button type="submit" class="button button--primary">
+              {{ editingId() ? 'Save changes' : 'Add address' }}
+            </button>
+            <button type="button" class="button" (click)="cancelAddressForm()">Cancel</button>
+          </div>
+        </form>
+      }
+
+      @if (addresses().length === 0 && !showAddressForm()) {
+        <p class="muted">No addresses yet. Add one to speed up checkout.</p>
+      }
+
+      <ul class="addresses">
+        @for (address of addresses(); track address.id) {
+          <li class="address">
+            <div class="address__body">
+              <div class="address__title">
+                <strong>{{ address.label || address.recipientName }}</strong>
+                @if (address.defaultShipping) {
+                  <span class="badge">Default shipping</span>
+                }
+                @if (address.defaultBilling) {
+                  <span class="badge badge--alt">Default billing</span>
+                }
+              </div>
+              <p class="address__lines">
+                {{ address.recipientName }}<br />
+                {{ address.line1 }}@if (address.line2) {, {{ address.line2 }}}<br />
+                {{ address.city }}@if (address.region) {, {{ address.region }}}<br />
+                {{ address.postalCode }} &middot; {{ address.countryCode }}
+              </p>
+            </div>
+            <div class="address__actions">
+              @if (!address.defaultShipping) {
+                <button type="button" class="link" (click)="makeDefaultShipping(address)">
+                  Make default shipping
+                </button>
+              }
+              @if (!address.defaultBilling) {
+                <button type="button" class="link" (click)="makeDefaultBilling(address)">
+                  Make default billing
+                </button>
+              }
+              <button type="button" class="link" (click)="startEdit(address)">Edit</button>
+              <button type="button" class="link link--danger" (click)="deleteAddress(address)">
+                Remove
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</section>
