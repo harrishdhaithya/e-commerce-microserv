@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    # File mode, not mem: profiles and addresses survive the dozens of restarts you
+    # will do each day (PLAN.md section 4).
+    #
+    # AUTO_SERVER=TRUE lets an external SQL client attach while the service is
+    # running - the closest thing to inspecting live state.
+    url: jdbc:h2:file:./data/customer;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  flyway:
+    # No db/seed here, unlike catalog-service: customers are created by just-in-time
+    # provisioning on their first authenticated request, not loaded from a fixture.
+    # Listing a location that does not exist on the classpath can fail startup.
+    locations: classpath:db/migration
+
+  h2:
+    console:
+      # http://localhost:8081/h2-console
+      # JDBC URL jdbc:h2:file:./data/customer, user sa, no password.
+      # Dev profile only - never enable this anywhere reachable.
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    # Uncomment to watch the SQL Hibernate actually emits - the fastest way to
+    # catch an N+1 before it becomes a habit.
+    # org.hibernate.SQL: DEBUG
+    # org.hibernate.orm.jdbc.bind: TRACE
+    com.ecommerce: DEBUG

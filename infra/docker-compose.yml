@@ -1,0 +1,138 @@
+# Local development infrastructure.
+#
+# Phase 1 needs Keycloak and nothing else. There is deliberately no database here -
+# every service embeds its own H2 (see PLAN.md section 4). Kafka, Prometheus, Grafana
+# and Jaeger arrive in Phase 3; adding them now would mean five containers you do not
+# use yet.
+#
+# Run these from THIS directory (infra/), because `docker compose` only looks for a
+# compose file in the current directory:
+#
+#   docker compose up -d          start
+#   docker compose logs -f        follow
+#   docker compose stop           pause, keeping the realm you built in the console
+#   docker compose start          resume
+#   docker compose down           remove the container - discards console changes,
+#                                 so export your realm first (see volumes: below)
+#
+# From the repo root instead, point at the file:
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# That is safe rather than subtly broken: relative paths below resolve against this
+# file's location, not your working directory. To avoid repeating the flag,
+# `export COMPOSE_FILE=infra/docker-compose.yml` for the shell session.
+#
+# Version note: Keycloak's environment-variable names and management port have changed
+# across majors (KEYCLOAK_ADMIN -> KC_BOOTSTRAP_ADMIN_*, health moved to port 9000).
+# If something below does not behave, check the docs for the exact tag you pull rather
+# than assuming these names are stable.
+
+name: ecommerce-platform
+
+services:
+  keycloak:
+    # Pin a real tag rather than :latest, so a rebuild months from now behaves the
+    # same. Bump deliberately.
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: ecommerce-keycloak
+
+    command:
+      # Development mode: HTTP allowed, no clustering, and an embedded database. Never
+      # use start-dev for anything real.
+      - start-dev
+      # Import any realm JSON found in the mounted import directory, but only if that
+      # realm does not already exist. Safe to leave on permanently.
+      - --import-realm
+
+    environment:
+      # Admin console credentials. Fine to commit: this compose file only ever runs
+      # locally, and start-dev is not production-capable anyway.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+
+      # ---------------------------------------------------------------------------
+      # The single most important line in this file.
+      #
+      # This fixes the issuer Keycloak stamps into every token to
+      # http://localhost:8180/realms/ecommerce, regardless of which hostname the
+      # caller used to reach it.
+      #
+      # Without it, a service running on the host sees an issuer of localhost:8180
+      # while a service running inside Docker sees keycloak:8080 - and a resource
+      # server rejects any token whose `iss` does not match its configured
+      # issuer-uri byte for byte. The symptom is an opaque 401 invalid_token with
+      # nothing useful in the message.
+      #
+      # Every service's issuer-uri must be exactly this value.
+      # ---------------------------------------------------------------------------
+      KC_HOSTNAME: http://localhost:8180
+
+      # Internal (container-to-container) calls resolve against the same fixed
+      # hostname above instead of being derived per request.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: false
+
+      # Exposes /health/* and /metrics on the management port (9000).
+      KC_HEALTH_ENABLED: true
+
+    ports:
+      # 8180 on the host because 8080 belongs to the API gateway from Phase 2.
+      # Container-internal stays 8080.
+      - "8180:8080"
+
+    volumes:
+      # Realm JSON goes here. Read-only: the container must never rewrite your
+      # source of truth.
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+      - keycloak-data:/opt/keycloak/data
+      #
+      # There is deliberately NO volume for Keycloak's embedded H2 database.
+      #
+      # Mounting one at /opt/keycloak/data/h2 fails: that directory does not exist in
+      # the image (Keycloak creates it at runtime), so Docker creates the mount point
+      # as root-owned, and Keycloak - running as uid 1000 - cannot write to it. The
+      # symptom is AccessDeniedException on keycloakdb.trace.db and a container that
+      # will not start.
+      #
+      # Leaving it out is also the better workflow. Without a volume the database
+      # lives in the container's writable layer, which survives `stop`/`start` and
+      # `restart` - only `down` discards it. Combined with --import-realm, that makes
+      # the committed realm JSON the single source of truth: any change made in the
+      # admin console must be exported, or it is gone. That is the discipline you
+      # want, and it is exactly what the Step 2 checkpoint tests.
+      #
+      # If you ever do need persistence across `down`, mount the PARENT directory
+      # instead - `- keycloak-data:/opt/keycloak/data` - because that path does exist
+      # in the image, so Docker copies its correct ownership into the new volume.
+
+    healthcheck:
+      # The Keycloak image is a minimal UBI build with no curl or wget, so this uses
+      # bash's /dev/tcp instead. Health lives on the management port 9000, not 8080.
+      #
+      # Nothing depends on this yet, so delete it freely if it misbehaves. It starts
+      # earning its keep in Phase 3 when other containers need `depends_on:
+      # condition: service_healthy`.
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      # Keycloak takes a while to boot; without this the container is marked
+      # unhealthy before it has had a fair chance.
+      start_period: 45s
+
+    restart: unless-stopped
+
+  # Phase 3 additions, for reference. Do not uncomment until you need them.
+  #
+  #   kafka        - Redpanda is a lighter, Kafka-API-compatible option locally
+  #   mailpit      - catch-all SMTP with a web inbox, so notification-service can
+  #                  "send" mail with no way to reach a real person
+  #   prometheus   - scrapes each service's /actuator/prometheus
+  #   grafana      - dashboards over Prometheus
+  #   jaeger       - OpenTelemetry trace collector and UI
+volumes:
+  keycloak-data:

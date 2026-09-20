@@ -1,6 +1,6 @@
 spring:
   application:
-    name: catalog-service
+    name: customer-service
 
   profiles:
     # Running the jar or `mvn spring-boot:run` with no profile set lands in dev.
@@ -30,18 +30,22 @@ spring:
       # database later; start as you mean to continue.
       maximum-pool-size: 5
 
-# No spring.security.oauth2 block yet, deliberately.
-#
-# This service has no spring-boot-starter-oauth2-resource-server dependency, so such
-# a block would be silently ignored - configuration that looks active and is not.
-#
-# Adding the dependency is not a one-line change either: it secures every endpoint by
-# default, so /api/products would start returning 401 and break both the SPA and the
-# test suite until a SecurityFilterChain permits public GETs. That belongs in its own
-# step - see PLAN.md Phase 1.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Must match the `iss` claim in Keycloak's tokens byte for byte, which is
+          # why infra/docker-compose.yml pins KC_HOSTNAME to this same value. A
+          # mismatch surfaces as an opaque 401 invalid_token with no useful detail.
+          #
+          # Spring fetches the JWKS from here once and caches the public keys, so
+          # validation is offline: Keycloak being down blocks new logins but not
+          # authenticated API calls.
+          issuer-uri: http://localhost:8180/realms/ecommerce
 
 server:
-  port: 8082
+  # 8081 per the port map in docs/architecture.md. 8083 is inventory-service.
+  port: 8081
 
 management:
   endpoints:

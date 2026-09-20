@@ -1,0 +1,8 @@
+# Realm exports go in this directory.
+#
+# It must exist before the first `docker compose up`, because the compose file mounts
+# it read-only - Docker would otherwise create it as a root-owned directory.
+#
+# Empty right now, which is fine: --import-realm simply finds nothing to do. After
+# Step 2 of docs/guides/phase-1-customer-service.md, realm-ecommerce.json lands here
+# and gets committed.

@@ -1,0 +1,69 @@
+{
+  "realm": "ecommerce",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 900,
+
+  "roles": {
+    "realm": [
+      { "name": "CUSTOMER", "description": "Standard shopper" },
+      { "name": "ADMIN", "description": "Back-office administrator" }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "ecom-web",
+      "name": "Angular SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:4200/*"],
+      "webOrigins": ["http://localhost:4200"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      }
+    },
+    {
+      "clientId": "ecom-dev-cli",
+      "name": "Dev CLI - token fetching only, never ship this",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true
+    }
+  ],
+
+  "users": [
+    {
+      "username": "customer@test.local",
+      "email": "customer@test.local",
+      "firstName": "Test",
+      "lastName": "Customer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["CUSTOMER"]
+    },
+    {
+      "username": "admin@test.local",
+      "email": "admin@test.local",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["CUSTOMER", "ADMIN"]
+    }
+  ]
+}

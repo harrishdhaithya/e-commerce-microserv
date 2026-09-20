@@ -23,7 +23,22 @@ its own embedded database, so there's nothing to provision.
   env vars (the older `KEYCLOAK_ADMIN*` names were renamed — check the image docs for
   the version you pull)
 
-**Checkpoint:** you can log into the admin console at http://localhost:8180 .
+Start it **from the `infra/` directory** — `docker compose` only looks for a compose
+file in the current directory, so running it from the repo root gives
+`no configuration file provided: not found`:
+
+```
+cd infra
+docker compose up -d
+docker compose logs -f keycloak
+```
+
+From the repo root, use `docker compose -f infra/docker-compose.yml up -d` instead.
+Relative paths inside the file resolve against the file's location, so this is
+equivalent rather than subtly different.
+
+**Checkpoint:** you can log into the admin console at http://localhost:8180 with
+`admin` / `admin`.
 
 ---
 
