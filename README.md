@@ -6,24 +6,27 @@ distributed tracing) rather than database administration.
 
 - **[PLAN.md](PLAN.md)** — architectural decisions, trade-offs and the phased roadmap
 - **[docs/](docs/)** — architecture reference and per-service schema/API documentation
-  ([architecture](docs/architecture.md) · [catalog-service](docs/services/catalog-service.md)
+  ([architecture](docs/architecture.md) · [api-gateway](docs/services/api-gateway.md)
+  · [catalog-service](docs/services/catalog-service.md)
   · [customer-service](docs/services/customer-service.md))
 
 **Status: Phases 0 and 1 complete.** `catalog-service` serves the catalog with public
 reads and `ADMIN`-only writes, `customer-service` handles profiles and addresses
 behind Keycloak, and the Angular SPA browses and signs in with OIDC. The whole stack
-runs under `docker compose`. Next is Phase 2: API gateway, cart and the order happy
-path.
+runs under `docker compose` behind an API gateway. Next in Phase 2: cart-service, then
+the order happy path.
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
-| Backend | Spring Boot 3.5.0, Java 21, Maven multi-module |
+| Backend | Spring Boot 3.5.16, Spring Cloud 2025.0.3, Java 21, Maven multi-module |
 | Database | H2, embedded, one per service (file in dev, in-memory in tests) |
 | Migrations | Flyway, `ddl-auto: validate` |
 | Frontend | Angular 21, standalone components, signals, zoneless |
 | API docs | springdoc-openapi (Swagger UI) |
+| Identity | Keycloak (OIDC, authorization-code + PKCE) |
+| Edge | Spring Cloud Gateway, nginx for static files |
 
 ## Prerequisites
 
@@ -40,7 +43,7 @@ cd infra
 docker compose up -d --build
 ```
 
-Starts Keycloak, both services and the SPA. Open **http://localhost:4200** and sign in
+Starts Keycloak, the gateway, both services and the SPA. Open **http://localhost:4200** and sign in
 as `customer@test.local` or `admin@test.local` (password `password`).
 
 ```bash
@@ -85,7 +88,14 @@ cd services/customer-service
 ../../mvnw spring-boot:run
 ```
 
-**4. Frontend** — SPA on port 4200:
+**4. api-gateway** — port 8080:
+
+```bash
+cd services/api-gateway
+../../mvnw spring-boot:run
+```
+
+**5. Frontend** — SPA on port 4200:
 
 ```bash
 cd frontend
@@ -96,11 +106,10 @@ npm start
 Then open **http://localhost:4200**. Sign in with `customer@test.local` or
 `admin@test.local`.
 
-Routing is by path, and there are two copies of it — `frontend/proxy.conf.json` for
-the Angular dev server, `frontend/nginx.conf` for the container. Both send
-`/api/customers` to 8081 and `/api/products`/`/api/categories` to 8082, so the browser
-only ever sees one origin and CORS never comes up. Phase 2 replaces both with a single
-gateway target.
+All API traffic goes through the gateway on 8080, which owns the routing table.
+`frontend/proxy.conf.json` (dev server) and `frontend/nginx.conf` (container) each
+forward everything under `/api` to it — one route each, rather than one per service.
+The browser only ever sees one origin, so CORS never comes up.
 
 ### The one Docker subtlety worth knowing
 
@@ -137,6 +146,7 @@ should never be enabled on anything you ship.
 |---|---|
 | http://localhost:4200 | The store |
 | http://localhost:8180 | Keycloak admin console (`admin` / `admin`) |
+| http://localhost:8080/actuator/gateway/routes | Resolved gateway route table (needs a token) |
 | http://localhost:8082/swagger-ui.html | catalog-service API docs |
 | http://localhost:8081/swagger-ui.html | customer-service API docs |
 | http://localhost:8082/h2-console | catalog database console (dev only) |
@@ -150,8 +160,8 @@ while the service runs.
 ## Tests
 
 ```bash
-./mvnw test                          # backend: 10 tests, ~4s
-cd frontend && npm test -- --watch=false   # frontend: 8 tests, ~1s
+./mvnw test                                # backend: 75 tests, ~15s
+cd frontend && npm test -- --watch=false   # frontend: 15 tests, ~1s
 ```
 
 Backend integration tests run Flyway against in-memory H2 and then have Hibernate
@@ -167,8 +177,11 @@ common/
                          Self-wiring via Spring auto-configuration.
   common-events/         Cross-service event contracts. Event DTOs only.
 services/
-  catalog-service/       Products, categories, search (port 8082)
-frontend/                Angular workspace
+  api-gateway/           Routing and edge JWT validation (8080). Reactive; no database
+  customer-service/      Customer profile and addresses (8081)
+  catalog-service/       Products, categories, search (8082)
+frontend/                Angular workspace, plus nginx.conf for the container
+infra/                   docker compose stack and the Keycloak realm export
 data/                    H2 files, git-ignored
 ```
 
@@ -193,11 +206,13 @@ data/                    H2 files, git-ignored
 | [docs/services/](docs/services/) | One document per service: responsibilities, schema, API endpoints, events |
 | [PLAN.md](PLAN.md) | Why each decision was made, and the phase it lands in |
 
-Only `catalog-service` is implemented; the other service documents are design
-specifications and say so at the top.
+`api-gateway`, `catalog-service` and `customer-service` are implemented; the other
+five service documents are design specifications and say so at the top.
 
 ## What's next
 
-Phase 1: Keycloak as the identity provider, `customer-service` for profiles and
-addresses, and catalog writes behind an `ADMIN` role. See PLAN.md §8 and
-[docs/services/customer-service.md](docs/services/customer-service.md).
+Phase 2, continued: `cart-service`, then `inventory-service`, a stubbed
+`payment-service`, and `order-service` wiring them together with **synchronous** calls.
+That last step is deliberately fragile — feeling it fail is what makes Phase 3's
+transactional outbox and saga compensation read as necessary rather than ceremony.
+See PLAN.md §8.

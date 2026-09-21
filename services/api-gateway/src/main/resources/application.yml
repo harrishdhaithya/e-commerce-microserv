@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Note the property path. Spring Cloud Gateway 4.2 moved route configuration
+          # under `server.webflux`; the old `spring.cloud.gateway.routes` still binds
+          # but is the legacy form. Verified against the artifact's own
+          # spring-configuration-metadata.json rather than assumed.
+          routes:
+            # Routes are keyed on RESOURCE paths, not service names - see
+            # docs/architecture.md. A service owning two resources gets two routes,
+            # which is the price of keeping service topology out of the public API.
+            - id: products
+              uri: ${CATALOG_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/products/**
+
+            - id: categories
+              uri: ${CATALOG_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/categories/**
+
+            - id: customers
+              uri: ${CUSTOMER_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/customers/**
+
+          # Fail at startup on a malformed route rather than silently 404ing later.
+          fail-on-route-definition-error: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Same split as the services: validate `iss` as the browser sees it, fetch
+          # the signing keys over whatever network this process is actually on.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # `gateway` exposes the resolved route table at /actuator/gateway/routes -
+        # the fastest way to see what the gateway thinks it is doing.
+        include: health,info,metrics,gateway
+  endpoint:
+    gateway:
+      # Exposure alone is not enough. Boot 3.4 replaced `enabled` with `access`, and
+      # non-default endpoints are `none` until set - which shows up as a 404 rather
+      # than a 403, so it looks like the endpoint does not exist.
+      #
+      # It stays behind authentication (see SecurityConfig): the route table lists
+      # internal service addresses.
+      access: read-only
+
+logging:
+  level:
+    # Uncomment to watch route matching decisions.
+    # org.springframework.cloud.gateway: DEBUG
+    com.ecommerce: INFO

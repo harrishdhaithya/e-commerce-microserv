@@ -208,6 +208,35 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: ecommerce-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      # Service addresses on the compose network. The same jar runs locally against
+      # localhost defaults, so nothing needs reconfiguring to debug from an IDE.
+      CATALOG_SERVICE_URI: http://catalog-service:8082
+      CUSTOMER_SERVICE_URI: http://customer-service:8081
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ecommerce
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      customer-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
   frontend:
     build:
       # Only this service builds from frontend/ - the SPA has no dependency on the
@@ -221,9 +250,8 @@ services:
       # this port means editing the realm JSON to match.
       - "4200:80"
     depends_on:
-      catalog-service:
-        condition: service_started
-      customer-service:
+      # nginx forwards /api to the gateway now, so that is its only dependency.
+      api-gateway:
         condition: service_started
     restart: unless-stopped
 

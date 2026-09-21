@@ -16,6 +16,7 @@
     <description>Deployable services</description>
 
     <modules>
+        <module>api-gateway</module>
         <module>catalog-service</module>
         <module>customer-service</module>
         <!-- Phase 1: customer-service | Phase 2: api-gateway, cart, order, inventory, payment -->

@@ -1,0 +1,23 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # jwk-set-uri rather than issuer-uri, so building the decoder never contacts
+          # Keycloak. With issuer-uri the context would fetch the discovery document
+          # at startup and every test would depend on Keycloak being up.
+          jwk-set-uri: http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: products
+              uri: http://localhost:18082
+              predicates:
+                - Path=/api/products/**
+            - id: customers
+              uri: http://localhost:18081
+              predicates:
+                - Path=/api/customers/**
