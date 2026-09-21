@@ -17,6 +17,7 @@
 
     <modules>
         <module>api-gateway</module>
+        <module>cart-service</module>
         <module>catalog-service</module>
         <module>customer-service</module>
         <!-- Phase 1: customer-service | Phase 2: api-gateway, cart, order, inventory, payment -->

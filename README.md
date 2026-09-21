@@ -13,8 +13,9 @@ distributed tracing) rather than database administration.
 **Status: Phases 0 and 1 complete.** `catalog-service` serves the catalog with public
 reads and `ADMIN`-only writes, `customer-service` handles profiles and addresses
 behind Keycloak, and the Angular SPA browses and signs in with OIDC. The whole stack
-runs under `docker compose` behind an API gateway. Next in Phase 2: cart-service, then
-the order happy path.
+runs under `docker compose` behind an API gateway, with `cart-service` handling
+anonymous and signed-in baskets. Next in Phase 2: inventory, a stubbed payment
+service, then the order happy path.
 
 ## Stack
 
@@ -149,6 +150,7 @@ should never be enabled on anything you ship.
 | http://localhost:8080/actuator/gateway/routes | Resolved gateway route table (needs a token) |
 | http://localhost:8082/swagger-ui.html | catalog-service API docs |
 | http://localhost:8081/swagger-ui.html | customer-service API docs |
+| http://localhost:8084/swagger-ui.html | cart-service API docs |
 | http://localhost:8082/h2-console | catalog database console (dev only) |
 | http://localhost:8081/h2-console | customer database console (dev only) |
 | http://localhost:808{1,2}/actuator/health | Health checks |
@@ -160,7 +162,7 @@ while the service runs.
 ## Tests
 
 ```bash
-./mvnw test                                # backend: 75 tests, ~15s
+./mvnw test                                # backend: 106 tests, ~20s
 cd frontend && npm test -- --watch=false   # frontend: 15 tests, ~1s
 ```
 
@@ -180,6 +182,7 @@ services/
   api-gateway/           Routing and edge JWT validation (8080). Reactive; no database
   customer-service/      Customer profile and addresses (8081)
   catalog-service/       Products, categories, search (8082)
+  cart-service/          Shopping carts, anonymous or signed-in (8084)
 frontend/                Angular workspace, plus nginx.conf for the container
 infra/                   docker compose stack and the Keycloak realm export
 data/                    H2 files, git-ignored

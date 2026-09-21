@@ -48,11 +48,25 @@ graph TB
     PAY --- PAYDB[("H2")]
     NOTIF --- NOTIFDB[("H2")]
 
+    style GW fill:#2d7a4f,color:#fff
+    style CUST fill:#2d7a4f,color:#fff
+    style CUSTDB fill:#2d7a4f,color:#fff
     style CAT fill:#2d7a4f,color:#fff
     style CATDB fill:#2d7a4f,color:#fff
+    style CART fill:#2d7a4f,color:#fff
+    style CARTDB fill:#2d7a4f,color:#fff
+    style SPA fill:#2d7a4f,color:#fff
+    style KC fill:#2d7a4f,color:#fff
 ```
 
-Green indicates what is implemented today. Everything else is designed but not built.
+Green indicates what is implemented today: the SPA, Keycloak, the gateway, and the
+customer, catalog and cart services. Everything else is designed but not built — no
+Kafka, no saga, no order flow yet.
+
+One arrow the diagram does not show: **cart-service calls catalog-service directly**
+to read product names and prices when a line is added, and again to re-validate at
+checkout. It is the project's first service-to-service call, and a synchronous one by
+design — a read path, per rule 2 below.
 
 Keycloak sits outside the request path deliberately: services validate JWTs offline
 against cached public keys, so Keycloak being down blocks new logins but not
@@ -291,6 +305,8 @@ becomes necessary (PLAN.md Phase 8).
 | keycloak | `quay.io/keycloak/keycloak` | — | Realm imported from committed JSON |
 | catalog-service | multi-stage Maven → JRE | **repo root** | Reactor module needs the parent POM |
 | customer-service | multi-stage Maven → JRE | **repo root** | Same |
+| cart-service | multi-stage Maven → JRE | **repo root** | Same |
+| api-gateway | multi-stage Maven → JRE | **repo root** | Stateless; no data volume |
 | frontend | Node build → nginx | `frontend/` | No Maven dependency |
 
 Points worth understanding:
@@ -335,7 +351,7 @@ skips issuer validation altogether.
 | 8081 | customer-service |
 | 8082 | **catalog-service** (running today) |
 | 8083 | inventory-service |
-| 8084 | cart-service |
+| 8084 | **cart-service** (running today) |
 | 8085 | order-service |
 | 8086 | payment-service |
 | 8087 | notification-service |

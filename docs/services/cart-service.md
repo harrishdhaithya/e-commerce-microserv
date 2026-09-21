@@ -1,7 +1,7 @@
 # cart-service
 
-> 🔵 **Planned — Phase 2. Not implemented.** This is a design specification. Nothing
-> described here exists yet, and details will change on contact with real code.
+> ✅ **Implemented.** This document describes running code. Schema comes from
+> `V1__create_cart_tables.sql`, endpoints from `CartController`.
 
 Active shopping carts. Short-lived, mutable, and the one place where "eventually
 correct" is genuinely fine.
@@ -11,8 +11,9 @@ correct" is genuinely fine.
 | **Port** | 8084 |
 | **Base path** | `/api/cart` |
 | **Database** | `jdbc:h2:file:./data/cart` |
-| **Module** | `services/cart-service` (planned) |
-| **Auth** | `CUSTOMER`; anonymous carts keyed by an opaque token |
+| **Module** | `services/cart-service` |
+| **Package** | `com.ecommerce.cart` |
+| **Auth** | **Anonymous-friendly.** A bearer token's `sub`, or the `X-Cart-Token` header |
 
 ## Responsibilities
 
@@ -49,15 +50,23 @@ must record what was actually agreed.
 | `customer_id` | `VARCHAR(36)` | nullable — Keycloak `sub`; null for anonymous |
 | `anonymous_token` | `VARCHAR(64)` | nullable — set when `customer_id` is null |
 | `status` | `VARCHAR(20)` | `NOT NULL` — `ACTIVE`, `CHECKED_OUT`, `ABANDONED`, `EXPIRED` |
-| `currency` | `CHAR(3)` | `NOT NULL`, default `'USD'` |
+| `currency` | `VARCHAR(3)` | `NOT NULL`, default `'USD'` |
 | `created_at` | `TIMESTAMP` | `NOT NULL` |
 | `updated_at` | `TIMESTAMP` | `NOT NULL` |
 | `expires_at` | `TIMESTAMP` | `NOT NULL` |
 | `version` | `INTEGER` | `NOT NULL`, default `0` |
 
-**Constraint:** exactly one of `customer_id` / `anonymous_token` must be non-null.
-**Indexes:** unique partial on `customer_id` where `status = 'ACTIVE'` (one active
-cart per customer), `ix_carts_expiry (status, expires_at)`.
+**Constraint:** `ck_carts_one_owner` — a `CHECK` enforcing that exactly one of
+`customer_id` / `anonymous_token` is non-null. Expressing it in the schema means no
+application bug can create a cart with two owners or none.
+
+**Indexes:** `ix_carts_customer (customer_id, status)`,
+`ix_carts_anonymous (anonymous_token, status)`, `ix_carts_expiry (status, expires_at)`.
+
+A partial unique index on "one active cart per customer" was considered and dropped —
+H2 and Oracle express partial indexes differently, so it would break the
+vendor-neutral SQL rule from PLAN.md §4. The service enforces it instead by always
+looking up `(customer_id, ACTIVE)` before creating.
 
 ### `cart_items`
 
@@ -100,15 +109,39 @@ erDiagram
 
 ### Expiry
 
-A scheduled job marks carts past `expires_at` as `EXPIRED` and deletes rows older
-than a retention window. `ON DELETE CASCADE` handles the items. This replaces what
-Redis TTL would have done for free — the trade-off accepted above.
+`CartExpirySweeper` runs hourly, marking carts past `expires_at` as **`ABANDONED`** if
+they held items or **`EXPIRED`** if empty. That distinction is what gives a Phase 3
+abandoned-cart email something worth targeting — there is no point chasing an empty
+basket.
+
+It sweeps in batches of 200 rather than loading everything expired: a sweep that
+fetches every stale cart at once is one that eventually runs out of memory instead of
+doing its job. Whatever it misses, the next run picks up.
+
+This is what Redis TTL would have done for free. Dropping Redis traded a container for
+this class — a reasonable swap, but the cost is real: expiry is now approximate,
+bounded by the sweep interval, rather than exact.
+
+Lifetimes are configurable (`cart.ttl-signed-in`, `cart.ttl-anonymous`), defaulting to
+30 days and 2 days. Anonymous carts get less because they belong to a browser rather
+than a person.
 
 ## API endpoints
 
 The cart is always derived from the caller's identity, never from a cart id in the
 path. A `GET /api/cart/{id}` that trusted its parameter would let anyone read anyone's
-cart.
+cart, so no such endpoint exists.
+
+**Ownership is resolved per request:** a bearer token means the cart belongs to that
+`sub`; without one, it belongs to the `X-Cart-Token` header the SPA supplies. A token
+wins over the header, so a stale `X-Cart-Token` left behind after login cannot
+redirect a signed-in shopper's writes into an anonymous basket. A request with
+*neither* is a `400` — the service refuses to guess rather than handing out a shared
+default cart.
+
+The security consequence is worth stating plainly: **an anonymous cart is only as
+private as its token.** Acceptable because a cart holds no personal data, only product
+ids — and it is why `/api/cart/merge` is the one endpoint requiring authentication.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -117,8 +150,11 @@ cart.
 | `PATCH` | `/api/cart/items/{productId}` | Set quantity. `0` removes the line |
 | `DELETE` | `/api/cart/items/{productId}` | Remove a line |
 | `DELETE` | `/api/cart` | Empty the cart |
-| `POST` | `/api/cart/merge` | Merge an anonymous cart into the customer's on login |
+| `POST` | `/api/cart/merge` | Adopt an anonymous cart after signing in. **Requires a token** |
 | `POST` | `/api/cart/validate` | Re-check prices and availability before checkout |
+
+`DELETE /api/cart` returns `200` with the emptied cart rather than `204`, because the
+client needs the updated totals to re-render and a second `GET` would be wasteful.
 
 `GET /api/cart` response:
 
@@ -153,30 +189,82 @@ changed from $179 to $189" rather than silently charging more:
 {
   "valid": false,
   "issues": [
-    { "productId": "…", "type": "PRICE_CHANGED", "oldValue": 179.0, "newValue": 189.0 },
-    { "productId": "…", "type": "INSUFFICIENT_STOCK", "requested": 5, "available": 2 }
-  ]
+    {
+      "productId": "…",
+      "productName": "Meridian 14 Ultrabook",
+      "type": "PRICE_CHANGED",
+      "oldPrice": 1499.0,
+      "newPrice": 1599.0
+    }
+  ],
+  "cart": { "…": "the cart, with snapshots refreshed to current values" }
 }
 ```
 
+Two details that matter:
+
+- **Snapshots are refreshed as a side effect**, so the cart a shopper confirms is the
+  cart they are charged for.
+- Prices are compared with `BigDecimal.compareTo`, not `equals`. `equals` is
+  scale-sensitive, so `179.00` and `179.0000` would compare unequal and report a
+  phantom price change on every validate.
+
+`INSUFFICIENT_STOCK` is **not** implemented — it needs inventory-service. The `Issue.Type`
+enum currently has `PRICE_CHANGED` and `UNAVAILABLE` only.
+
 ### Anonymous cart merge
 
-Anonymous browsing needs a cart, and logging in must not discard it. On login the SPA
-calls `POST /api/cart/merge` with the anonymous token; quantities are summed per
-product, and the anonymous cart is deleted.
+Anonymous browsing needs a cart, and logging in must not discard it — that is the
+single most annoying bug an e-commerce site can have. On login the SPA calls
+`POST /api/cart/merge` with the anonymous token.
+
+Three cases, and the middle one is the optimisation worth noticing:
+
+1. **No anonymous cart** — nothing to do; return the customer's cart.
+2. **Customer has no cart yet** — `claimFor()` hands the anonymous cart over outright,
+   clearing its token. No copying, no second row.
+3. **Both exist** — quantities are summed per product, then the anonymous cart is
+   emptied.
 
 ## Error responses
 
 | Status | Cause |
 |---|---|
-| `400` | Quantity below zero, or an unparseable product id |
-| `404` | Product not found in catalog-service when adding |
-| `409` | Concurrent modification lost the optimistic lock |
-| `422` | Operation on a cart already `CHECKED_OUT` |
+| `400` | Quantity outside 0–99, or neither a token nor an `X-Cart-Token` supplied |
+| `401` | `/api/cart/merge` without a token |
+| `404` | Product unknown to catalog-service, or no such line in the cart |
+| `409` | Cart already `CHECKED_OUT`; or a concurrent modification lost the `@Version` lock |
+| `500` | **catalog-service unreachable** — see below |
+
+**A catalog outage is not a missing product.** `CatalogClient` throws
+`CatalogUnavailableException` on a timeout or connection failure, distinct from the
+empty `Optional` that means "no such product". Reporting the two identically would
+make both undiagnosable, so one is a `500` and the other a `404`. There is a test
+pinning it.
+
+Every call to catalog-service carries a timeout (`cart.catalog-timeout`, default 2s).
+An untimed call is how one slow service exhausts another's threads. A circuit breaker
+belongs here too and arrives with Resilience4j in Phase 3.
+
+## Tests
+
+31 tests, about 4 seconds.
+
+| Class | Covers |
+|---|---|
+| `CartServiceApplicationTests` (1) | Context loads; migration runs; mappings validate |
+| `CartTest` (10) | Aggregate rules with no Spring — line merging, snapshot precedence, totals, merge semantics, abandoned vs. expired |
+| `CartControllerTest` (20) | Anonymous access, cart isolation by token and by `sub`, token beating a stale header, price coming from the catalog rather than the request, merge in all three cases, validate reporting changes, and a catalog outage not masquerading as a 404 |
+
+`CatalogClient` is a `@MockitoBean` in the controller tests: the interesting behaviour
+is cart-side, and whether the catalog answers correctly is its own suite's job. The
+Phase 5 contract tests are what will pin that boundary.
 
 ## Events
 
-**Publishes:**
+**Not implemented.** Nothing is published or consumed today — Kafka arrives in Phase 3.
+
+Planned:
 
 | Event | When | Consumers |
 |---|---|---|

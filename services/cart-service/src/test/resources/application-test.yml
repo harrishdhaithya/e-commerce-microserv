@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cart-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  flyway:
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # jwk-set-uri, not issuer-uri: building the decoder must never contact
+          # Keycloak, or every test would depend on it being up.
+          jwk-set-uri: http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs
+
+cart:
+  # Short TTLs so expiry behaviour is testable without waiting.
+  ttl-signed-in: 1h
+  ttl-anonymous: 5m
+  catalog-base-url: http://localhost:18082
+  catalog-timeout: 250ms

@@ -208,6 +208,35 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  cart-service:
+    build:
+      context: ..
+      dockerfile: services/cart-service/Dockerfile
+    container_name: ecommerce-cart
+    ports:
+      - "8084:8084"
+    volumes:
+      - cart-data:/app/data
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ecommerce
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+      # The first service-to-service call in this stack: cart reads product names and
+      # prices from the catalog when a line is added, and re-checks them at checkout.
+      CATALOG_SERVICE_URI: http://catalog-service:8082
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: ..
@@ -220,6 +249,7 @@ services:
       # localhost defaults, so nothing needs reconfiguring to debug from an IDE.
       CATALOG_SERVICE_URI: http://catalog-service:8082
       CUSTOMER_SERVICE_URI: http://customer-service:8081
+      CART_SERVICE_URI: http://cart-service:8084
       KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ecommerce
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
     depends_on:
@@ -228,6 +258,8 @@ services:
       catalog-service:
         condition: service_started
       customer-service:
+        condition: service_started
+      cart-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
@@ -266,5 +298,6 @@ services:
 
 volumes:
   keycloak-data:
+  cart-data:
   catalog-data:
   customer-data:

@@ -44,6 +44,12 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
 
+                        // Carts are usable before signing up, so the edge lets them
+                        // through and cart-service resolves ownership per request -
+                        // a bearer token's `sub`, or the X-Cart-Token header. Merging
+                        // is the exception and is authenticated downstream.
+                        .pathMatchers("/api/cart/**").permitAll()
+
                         .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
 
                         // CORS preflight carries no credentials and must not 401.

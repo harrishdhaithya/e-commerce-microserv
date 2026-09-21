@@ -296,8 +296,8 @@ Keycloak in Docker per §5.1, realm JSON committed and imported, `ecom-web` PKCE
 *Deferred by choice:* product variants, multiple images and brands — the catalog model stays simple until something needs them. No admin UI yet; the write endpoints are exercised by tests and `curl`.
 *Exit criterion:* log in through Keycloak's own login page, land back in the SPA authenticated, and edit an address that persists. Then stop Keycloak and confirm authenticated API calls still work — that's the offline-JWT-validation lesson in one experiment.
 
-**Phase 2 — Gateway, cart, and order happy path (2 weeks)** — 🟡 gateway done
-Spring Cloud Gateway with JWT validation and routing; the SPA now goes through it only. ✅ *Gateway built: Spring Cloud 2025.0.3, reactive, edge authentication with role checks left on the services. Both the dev proxy and nginx collapsed from three routes to one.* `cart-service` with its own H2 tables. `order-service` creating orders via **synchronous** calls to inventory and payment (no Kafka yet). `inventory-service` and a stub `payment-service`.
+**Phase 2 — Gateway, cart, and order happy path (2 weeks)** — 🟡 gateway + cart done
+Spring Cloud Gateway with JWT validation and routing; the SPA now goes through it only. ✅ *Gateway built: Spring Cloud 2025.0.3, reactive, edge authentication with role checks left on the services. Both the dev proxy and nginx collapsed from three routes to one.* `cart-service` with its own H2 tables. ✅ *Built: anonymous carts keyed by an `X-Cart-Token` header, merge-on-login, price snapshots re-validated against catalog-service, and a scheduled expiry sweep standing in for the Redis TTL that was dropped. Also the project's first service-to-service call — with a timeout, and an outage distinguished from a missing product.* `order-service` creating orders via **synchronous** calls to inventory and payment (no Kafka yet). `inventory-service` and a stub `payment-service`.
 *Exit criterion:* end-to-end checkout works. It's fragile and synchronous — that's the point. Feeling that fragility is what makes Phase 3 make sense.
 
 **Phase 3 — Events, saga, and observability (2–3 weeks) ← the important phase**

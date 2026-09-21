@@ -29,6 +29,11 @@ spring:
               predicates:
                 - Path=/api/customers/**
 
+            - id: cart
+              uri: ${CART_SERVICE_URI:http://localhost:8084}
+              predicates:
+                - Path=/api/cart/**
+
           # Fail at startup on a malformed route rather than silently 404ing later.
           fail-on-route-definition-error: true
 

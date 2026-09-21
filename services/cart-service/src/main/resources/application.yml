@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: cart-service
+
+  profiles:
+    default: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # See docs/architecture.md. issuer-uri is what `iss` must equal;
+          # jwk-set-uri is where this process fetches the keys, which differs inside
+          # Docker because "localhost" is the container.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
+
+server:
+  port: 8084
+
+cart:
+  # How long a cart survives without being touched. Anonymous carts get less: they
+  # belong to a browser session rather than a person, so holding them for days is
+  # just accumulated rubbish.
+  ttl-signed-in: 30d
+  ttl-anonymous: 2d
+  # Where to re-validate prices and availability at checkout.
+  catalog-base-url: ${CATALOG_SERVICE_URI:http://localhost:8082}
+  # Every outbound call gets a timeout. No exceptions - an untimed call is how one
+  # slow service takes down the rest.
+  catalog-timeout: 2s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{correlationId:-no-correlation-id}] %logger{36} - %msg%n"
