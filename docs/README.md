@@ -18,6 +18,7 @@ please fix it.
 
 - **[architecture.md](architecture.md)** — system overview, communication patterns,
   data ownership, cross-cutting concerns, port map
+- **[architecture-diagram.md](architecture-diagram.md)** — the system in one picture
 - **[guides/phase-1-customer-service.md](guides/phase-1-customer-service.md)** —
   step-by-step build guide with checkpoints, for implementing Keycloak +
   customer-service

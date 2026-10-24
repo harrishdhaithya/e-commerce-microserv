@@ -206,6 +206,7 @@ data/                    H2 files, git-ignored
 | Document | Contents |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | System overview, communication patterns, data ownership, port map |
+| [docs/architecture-diagram.md](docs/architecture-diagram.md) | The system in one picture |
 | [docs/services/](docs/services/) | One document per service: responsibilities, schema, API endpoints, events |
 | [PLAN.md](PLAN.md) | Why each decision was made, and the phase it lands in |
 

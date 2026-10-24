@@ -1,7 +1,8 @@
 # Architecture
 
 System-level reference. For the reasoning behind these choices and the delivery
-roadmap, see [PLAN.md](../PLAN.md).
+roadmap, see [PLAN.md](../PLAN.md). The system in one picture:
+[architecture-diagram.md](architecture-diagram.md).
 
 ## System overview
 
