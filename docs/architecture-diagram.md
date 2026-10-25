@@ -26,26 +26,29 @@ flowchart TD
         CUST["customer-service :8081<br/>profile · addresses"]
         CAT["catalog-service :8082<br/>products · categories"]
         CART["cart-service :8084<br/>carts · line items"]
+        INV["inventory-service :8083<br/>stock · reservations"]
 
         CUSTDB[("H2<br/>customer")]
         CATDB[("H2<br/>catalog")]
         CARTDB[("H2<br/>cart")]
+        INVDB[("H2<br/>inventory")]
 
         CUST --- CUSTDB
         CAT --- CATDB
         CART --- CARTDB
+        INV --- INVDB
     end
 
     VALID -->|"/api/customers/**"| CUST
     VALID -->|"/api/products · /api/categories"| CAT
     VALID -->|"/api/cart/**"| CART
+    VALID -->|"/api/stock/**"| INV
 
     CART -->|"product name + price<br/>synchronous · 2s timeout"| CAT
 
     KC -.->|"JWKS public keys<br/>fetched once, then cached"| GW
 
     subgraph planned["Planned — Phase 2 / 3"]
-        INV["inventory-service :8083<br/>stock · reservations"]
         ORD["order-service :8085<br/>orders · saga orchestration"]
         PAY["payment-service :8086<br/>simulated gateway"]
         NOTIF["notification-service :8087"]
@@ -59,7 +62,6 @@ flowchart TD
     end
 
     VALID -.->|"/api/orders"| ORD
-    VALID -.->|"/api/stock"| INV
 
     classDef client fill:#ddd6f3,stroke:#6b5bab,color:#16161d
     classDef service fill:#e8e2f7,stroke:#7c6bb5,color:#16161d
@@ -69,11 +71,11 @@ flowchart TD
     classDef future fill:#ececf0,stroke:#9b9ba6,color:#4a4a55,stroke-dasharray: 5 5
 
     class SHOPPER,SPA,NGINX client
-    class GW,CUST,CAT,CART service
-    class CUSTDB,CATDB,CARTDB store
+    class GW,CUST,CAT,CART,INV service
+    class CUSTDB,CATDB,CARTDB,INVDB store
     class KC identity
     class VALID decision
-    class INV,ORD,PAY,NOTIF,KAFKA future
+    class ORD,PAY,NOTIF,KAFKA future
 
     style edge fill:#fffbe8,stroke:#d4c56a,color:#16161d
     style svcs fill:#f6f4fc,stroke:#9a8cc7,color:#16161d

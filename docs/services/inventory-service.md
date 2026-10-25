@@ -1,7 +1,8 @@
 # inventory-service
 
-> 🔵 **Planned — Phase 2. Not implemented.** This is a design specification. Nothing
-> described here exists yet, and details will change on contact with real code.
+> ✅ **Implemented.** This document describes running code. Schema comes from
+> `V1__create_inventory_tables.sql`, endpoints from `StockController` and
+> `ReservationController`.
 
 Stock levels and reservations. The service where concurrency actually matters — two
 customers must not both buy the last item.
@@ -11,8 +12,9 @@ customers must not both buy the last item.
 | **Port** | 8083 |
 | **Resources** | `/api/stock`, `/api/reservations` |
 | **Database** | `jdbc:h2:file:./data/inventory` |
-| **Module** | `services/inventory-service` (planned) |
-| **Auth** | `ADMIN` for writes; availability reads public |
+| **Module** | `services/inventory-service` |
+| **Package** | `com.ecommerce.inventory` |
+| **Auth** | Availability reads public; exact counts, writes and reservations `ADMIN` |
 
 ## Responsibilities
 
@@ -92,12 +94,12 @@ The ledger is what lets you answer "why is this SKU at 3?" six weeks later. Curr
 quantity is derivable from it, which makes it the audit trail *and* a repair
 mechanism if the counters ever drift.
 
-### Saga plumbing
+### Not built yet
 
-| Table | Purpose |
-|---|---|
-| `outbox` | `id`, `aggregate_id`, `event_type`, `payload`, `created_at`, `published_at` |
-| `processed_events` | `event_id` (PK) — idempotency guard |
+`outbox` and `processed_events` are **not** in the migration. They belong with Kafka in
+Phase 3, and creating empty tables ahead of the code that uses them would be
+speculative schema. The reservation lifecycle below is already shaped to be driven by
+events when they arrive.
 
 ## API endpoints
 
@@ -173,9 +175,16 @@ non-idempotent reserve handler would double-reserve on redelivery.
 
 ## Decisions deferred
 
-- **Reservation TTL.** Long enough for a slow payment, short enough not to strand
-  stock. Needs a real number.
-- **Retry policy on optimistic-lock conflict** — attempt count and backoff.
+Settled since:
+
+- **Reservation TTL** is `inventory.reservation-ttl`, 15 minutes by default. Long
+  enough for a slow payment, short enough that an abandoned checkout does not strand
+  stock for long.
+- **Retry policy** is `inventory.max-reserve-attempts` (4) with
+  `inventory.retry-backoff` (25ms). Bounded on purpose: a SKU under genuine contention
+  should fail loudly rather than spin, holding a connection from a pool of five.
+
+Still deferred:
 - **Multi-warehouse**, which would add a location dimension to every table. Out of
   scope unless the project grows.
 - **Whether availability reads should be cached**, and how stale is acceptable.

@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: inventory-service
+
+  profiles:
+    default: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
+
+server:
+  port: 8083
+
+inventory:
+  # How long a reservation is held before the sweep releases it. Long enough for a
+  # slow payment, short enough not to strand stock on a crashed checkout.
+  reservation-ttl: 15m
+  # Optimistic-lock retries. Each attempt is a fresh transaction with a fresh read;
+  # a bounded count means a genuinely contended SKU fails loudly rather than spinning.
+  max-reserve-attempts: 4
+  retry-backoff-ms: 25
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{correlationId:-no-correlation-id}] %logger{36} - %msg%n"

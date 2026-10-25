@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    # MVCC matters here: the concurrency test needs real row-level behaviour, not a
+    # single-connection toy.
+    url: jdbc:h2:mem:inventory-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  flyway:
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs
+
+inventory:
+  reservation-ttl: 2s
+  max-reserve-attempts: 4
+  retry-backoff-ms: 5

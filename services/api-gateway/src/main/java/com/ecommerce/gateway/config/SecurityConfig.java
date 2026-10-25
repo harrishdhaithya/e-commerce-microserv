@@ -50,6 +50,12 @@ public class SecurityConfig {
                         // is the exception and is authenticated downstream.
                         .pathMatchers("/api/cart/**").permitAll()
 
+                        // Availability is public so a storefront can show "in stock"
+                        // to an anonymous visitor. Exact counts and all writes are
+                        // ADMIN-gated downstream.
+                        .pathMatchers(HttpMethod.GET, "/api/stock/*").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/stock/availability").permitAll()
+
                         .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
 
                         // CORS preflight carries no credentials and must not 401.

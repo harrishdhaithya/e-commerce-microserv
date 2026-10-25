@@ -34,6 +34,14 @@ spring:
               predicates:
                 - Path=/api/cart/**
 
+            # /api/stock only. /api/reservations is deliberately NOT routed: those
+            # endpoints are called by the checkout saga, and a client able to reserve
+            # directly could hold inventory without ever placing an order.
+            - id: stock
+              uri: ${INVENTORY_SERVICE_URI:http://localhost:8083}
+              predicates:
+                - Path=/api/stock/**
+
           # Fail at startup on a malformed route rather than silently 404ing later.
           fail-on-route-definition-error: true
 

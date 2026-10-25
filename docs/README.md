@@ -19,9 +19,9 @@ please fix it.
 - **[architecture.md](architecture.md)** — system overview, communication patterns,
   data ownership, cross-cutting concerns, port map
 - **[architecture-diagram.md](architecture-diagram.md)** — the system in one picture
-- **[guides/phase-1-customer-service.md](guides/phase-1-customer-service.md)** —
-  step-by-step build guide with checkpoints, for implementing Keycloak +
-  customer-service
+- **Build guides** — step-by-step with checkpoints, for implementing a service yourself:
+  [phase-1-customer-service](guides/phase-1-customer-service.md) ·
+  [phase-2-inventory-service](guides/phase-2-inventory-service.md)
 
 ### Service documents
 
@@ -32,7 +32,7 @@ Each contains responsibilities, database schema, API endpoints, and events.
 | [api-gateway](services/api-gateway.md) | 8080 | ✅ **Implemented** |
 | [customer-service](services/customer-service.md) | 8081 | ✅ **Implemented** |
 | [catalog-service](services/catalog-service.md) | 8082 | ✅ **Implemented** |
-| [inventory-service](services/inventory-service.md) | 8083 | 🔵 Planned — Phase 2 |
+| [inventory-service](services/inventory-service.md) | 8083 | ✅ **Implemented** |
 | [cart-service](services/cart-service.md) | 8084 | ✅ **Implemented** |
 | [order-service](services/order-service.md) | 8085 | 🔵 Planned — Phase 2/3 |
 | [payment-service](services/payment-service.md) | 8086 | 🔵 Planned — Phase 2/3 |
@@ -40,11 +40,12 @@ Each contains responsibilities, database schema, API endpoints, and events.
 
 ## Read this before trusting a document
 
-**`api-gateway`, `catalog-service`, `customer-service` and `cart-service` exist
-today.** Their documents describe code that runs, with schema, routes and endpoints
-taken from the actual migrations, configuration and controllers.
+**Five services exist today** — `api-gateway`, `catalog-service`,
+`customer-service`, `cart-service` and `inventory-service`. Their documents describe
+code that runs, with schema, routes and endpoints taken from the actual migrations,
+configuration and controllers.
 
-The other four are **design specifications**, not descriptions of working software.
+The other three are **design specifications**, not descriptions of working software.
 Every one carries a banner saying so. Their schemas and endpoints are proposals that
 will change once they meet real code — which is normal and fine, as long as nobody
 mistakes them for as-built documentation. Each planned document ends with a
